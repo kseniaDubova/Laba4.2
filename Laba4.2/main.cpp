@@ -1,11 +1,13 @@
 #include <iostream>
 #include <vector>
+#include <chrono>
 using namespace std;
 
 struct stats
 {
     size_t comparison_count = 0;
     size_t copy_count = 0;
+    double time;
 };
 
 
@@ -24,6 +26,14 @@ void clear_monitor()
 }
 
 
+
+void print_v(vector<int>& arr)
+{
+    for (auto iter = arr.begin(); iter != arr.end(); iter++)
+    {
+        cout << *iter << endl;
+    }
+}
 int check()
 {
     int number;
@@ -37,67 +47,89 @@ int check()
 }
 
 
-stats inserts_sort(vector<int>& arr)
+stats inserts_sort(vector<int>::iterator begin, vector<int>::iterator end)
 {
-    stats count;
-    for (auto i = arr.begin(); i != arr.end() - 1; i++)
+    stats result;
+    clock_t start, finish;
+    start = clock();
+    for (auto i = begin + 1; i < end; ++i)
     {
-//        count.comparison_count += 1;
-        for (auto j = i + 1; j != arr.begin() && *(j - 1) > *j; j--)
+        result.comparison_count += 1;
+        for (auto j = i; j > begin && *(j - 1) > *j; --j)
         {
-            count.comparison_count += 1;
-            int tmp = *j;
-            *j = *(j - 1);
-            *(j - 1) = tmp;
-            count.copy_count += 3;
+            result.comparison_count += 1;
+            result.copy_count += 3;
+            swap(*j, *(j - 1));
         }
-        count.comparison_count += 1;
+
     }
-    return count;
+    finish = clock();
+    result.time = (double(finish - start)) / (double(CLOCKS_PER_SEC));
+    return result;
 }
 
 
-stats shaker_sort(vector<int>& arr)
+stats shaker_sort(vector<int>::iterator begin, vector<int>::iterator end)
 {
-    stats count;
-//    cout <<"shaker_sort";
-    auto left = arr.begin() + 1;
-    auto right = arr.end() - 1;
-    int swap_flag = 1;
-    while (left != right)
+    stats result;
+    clock_t start, finish;
+    auto left = begin;
+    auto right = end - 1;
+    start = clock();
+    while (left < right)
     {
-//        count.comparison_count += 1;
-        for (auto i = left; i <= right; i++)
+
+        for (auto i = left; i < right; ++i)
         {
-//            count.comparison_count += 1;
-            if (*i < *(i - 1))
+            result.comparison_count += 1;
+            if (*i > *(i + 1))
             {
-                count.comparison_count += 1;
-                int tmp = *i;
-                *i = *(i - 1);
-                *(i - 1) = tmp;
-                count.copy_count += 3;
+                swap(*i, *(i + 1));
+                result.copy_count += 3;
             }
-            count.comparison_count += 1;
         }
-        right--;
-        for (auto i = right; i >= left; i--)
+        --right;
+
+        for (auto j = right; j > left; --j)
         {
-//            count.comparison_count += 1;
-            if (*i < *(i - 1))
+            result.comparison_count += 1;
+            if (*j < *(j - 1))
             {
-                count.comparison_count += 1;
-                int tmp = *i;
-                *i = *(i - 1);
-                *(i - 1) = tmp;
-                swap_flag = 1;
-                count.copy_count += 3;
+                swap(*j, *(j - 1));
+                result.copy_count += 3;
             }
-            count.comparison_count += 1;
         }
-        left++;
+        ++left;
     }
-    return count;
+    finish = clock();
+    result.time = (double(finish - start)) / (double(CLOCKS_PER_SEC));
+    return result;
+}
+
+
+stats comb(vector<int>::iterator begin, vector<int>::iterator end)
+{
+    stats result;
+    clock_t start, finish;
+    double factor = 1.24773309;
+    int step = int(end - begin);
+    start = clock();
+    while (step >= 1)
+    {
+        for (auto i = begin; i + step < end; ++i)
+        {
+            if (*i > *(i + step))
+            {
+                swap(*i, *(i + step));
+                result.copy_count += 3;
+            }
+            result.comparison_count += 1;
+        }
+        step /= factor;
+    }
+    finish = clock();
+    result.time = (double(finish - start)) / (double(CLOCKS_PER_SEC));
+    return result;
 }
 
 
@@ -128,35 +160,30 @@ void add_arr(vector<int>& arr, int size)
 }
 
 
-void print_v(vector<int>& arr)
-{
-    for (auto iter = arr.begin(); iter != arr.end(); iter++)
-    {
-        cout << *iter << endl;
-    }
-}
-
 
 void mean_time(int m)
 {
-    stats (*func[2])(vector<int>& arr) = {inserts_sort, shaker_sort};
+    stats (*func[3])(vector<int>::iterator begin, vector<int>::iterator end) = {inserts_sort, shaker_sort, comb};
     int size = 1000;
 
     while(size < 100001)
     {
         long int mean_copy = 0;
         long int mean_comp = 0;
+        long int mean_times = 0;
         for (int i = 0; i < 100; i++)
         {
            vector<int> arr;
            add_arr(arr, size);
-           stats res = func[m-1](arr);
+           stats res = func[m-1](arr.begin(), arr.end());
            mean_comp += res.comparison_count;
            mean_copy += res.copy_count;
+            mean_times += res.time;
         }
         cout << "Size : " << size << "\t";
         cout << "Comparisons : " << mean_comp/100 << "\t";
         cout << "Copy : " << mean_copy/100 << endl;
+//        cout << "Time : " << mean_times/100 << endl;
         if (size < 10000)
             size += 1000;
         else
@@ -175,22 +202,25 @@ void mean_time(int m)
 
 void sort_arrey(int m)
 {
-    stats (*func[2])(vector<int>& arr) = {inserts_sort, shaker_sort};
+    stats (*func[3])(vector<int>::iterator begin, vector<int>::iterator end) = {inserts_sort, shaker_sort, comb};
     int size = 1000;
 
     while(size < 100001)
     {
         long int mean_copy = 0;
         long int mean_comp = 0;
+        long int mean_times = 0;
         vector<int> arr;
-       add_arr(arr, size);
-        shaker_sort(arr);
-       stats res = func[m-1](arr);
-       mean_comp += res.comparison_count;
-       mean_copy += res.copy_count;
+        add_arr(arr, size);
+        shaker_sort(arr.begin(), arr.end());
+        stats res = func[m-1](arr.begin(), arr.end());
+        mean_comp += res.comparison_count;
+        mean_copy += res.copy_count;
+        mean_times += res.time;
         cout << "Size : " << size << "\t";
         cout << "Comparisons : " << mean_comp << "\t";
         cout << "Copy : " << mean_copy << endl;
+//        cout << "Time : " << mean_times << endl;
         if (size < 10000)
             size += 1000;
         else
@@ -222,22 +252,24 @@ void back_arr(vector<int>& arr)
 
 void backsort_arrey(int m)
 {
-    stats (*func[2])(vector<int>& arr) = {inserts_sort, shaker_sort};
+    stats (*func[3])(vector<int>::iterator begin, vector<int>::iterator end) = {inserts_sort, shaker_sort, comb};
     int size = 1000;
 
     while(size < 100001)
     {
         long int mean_copy = 0;
         long int mean_comp = 0;
+//        long int mean_times = 0;
        vector<int> arr;
        add_arr(arr, size);
         back_arr(arr);
-       stats res = func[m-1](arr);
+       stats res = func[m-1](arr.begin(), arr.end());
        mean_comp += res.comparison_count;
        mean_copy += res.copy_count;
         cout << "Size : " << size << "\t";
         cout << "Comparisons : " << mean_comp << "\t";
         cout << "Copy : " << mean_copy << endl;
+//        cout << "Time : " << mean_times << endl;
         if (size < 10000)
             size += 1000;
         else
@@ -259,10 +291,11 @@ int muny_2()
     cout << "What about sort?" << endl;
     cout << "1 - inserts_sort"<< endl;
     cout << "2 - shaker sort"<< endl;
-    cout << "3 - go out" << endl;
+    cout << "3 - comb sort" << endl;
+    cout << "4 - go out" << endl;
     cout << "Operation №";
     int m = check();
-    while (m > 3 || m <= 0)
+    while (m > 4 || m <= 0)
     {
         cout << "Incorrect value" << endl << "Operation №";
         m = check();
